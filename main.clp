@@ -1,334 +1,464 @@
 ; Create templates
-(deftemplate Recipe
+(deftemplate FoodRecipe
    (slot name)
    (slot cuisine)
    (slot difficulty)
    (slot ingredients)
    (slot instructions)
-   (slot rating)
+)
+
+(deftemplate DrinkRecipe
+   (slot name)
+   (slot temperature)
+   (slot difficulty)
+   (slot ingredients)
+   (slot instructions)
+)
+
+(deftemplate Compatibility
+   (slot food-name)
+   (slot drink-name)
+   (slot value)
 )
 
 (deftemplate User
    (slot name)
-   (slot cuisine-preference)
+   (slot food-cuisine-preference)
+   (slot drink-temp-preference)
    (slot difficulty-preference)
-   (slot ingredient-preference)
-   (slot allergy-preference)
+   (slot food-ingredient-preference)
+   (slot drink-ingredient-preference)
 )
 
-(defrule TopRecipes 
-    (declare (salience +1))
-    =>
-    (printout t "This is our highest rated recipe:" crlf)
-    (bind ?rate 0)
-    (bind ?recip nil)
-    (do-for-all-facts ((?recipe Recipe)) TRUE
-        (if (< ?rate ?recipe:rating)
-            then
-            (bind ?rate ?recipe:rating)
-            (bind ?recip ?recipe:name)  
-        )
-    )
-    (printout t " =*= " ?recip " =*= "crlf)
+(deftemplate FoodRecommendation
+   (slot name)
+   (slot ingredients)
+   (slot instructions)
 )
+
+(deftemplate DrinkRecommendation
+   (slot name)
+   (slot ingredients)
+   (slot instructions)
+)
+
+(deftemplate SetRecommendation
+   (slot food-name)
+   (slot food-ingredients)
+   (slot food-instructions)
+   (slot drink-name)
+   (slot drink-ingredients)
+   (slot drink-instructions)
+   (slot compatibility-value)
+)
+
+(deftemplate BestSet
+   (slot food-name)
+   (slot drink-name)
+)
+
+; Create Rules
 
 (defrule GetUserPreferences
+	 (declare (salience 10))
     (not (User (name ?name)))
     =>
     ; inputs for user
-    (printout t crlf)
     (printout t "insert your name !")
     (bind ?name (read))
     (printout t "Welcome, " ?name ". Let's find you a recipe!" crlf)
-    (printout t "What cuisine do you prefer? ")
-    (bind ?cuisine-pref (read))
+    (printout t "For the food, what cuisine do you prefer? ")
+    (bind ?food-cuisine-pref (read))
+    (printout t "For the drink, What temperature do you prefer? (Hot or Cold) ")
+    (bind ?drink-temp-pref (read))
     (printout t "How difficult should the recipe be? (Easy, Intermediate, Difficult) ")
     (bind ?difficulty-pref (read))
-    (printout t "Do you have any specific ingredient preferences? ")
-    (bind ?ingredient-pref (read))
-    (printout t "Do you have any alergies? ")
-    (bind ?allergy-pref (read))
+    (printout t "Do you have any specific ingredient preferences for the food? ")
+    (bind ?food-ingredient-pref (read))
+    (printout t "Do you have any specific ingredient preferences for the drink? ")
+    (bind ?drink-ingredient-pref (read))
     ; create new user fact
     (assert (User 
         (name ?name)
         (difficulty-preference ?difficulty-pref)
-        (cuisine-preference ?cuisine-pref)
-        (ingredient-preference ?ingredient-pref)
-        (allergy-preference ?allergy-pref)
+        (food-cuisine-preference ?food-cuisine-pref)
+        (drink-temp-preference ?drink-temp-pref)
+        (food-ingredient-preference ?food-ingredient-pref)
+        (drink-ingredient-preference ?drink-ingredient-pref)
     ))
 )
 
 
-(deffunction RecommendRecipesByCuisine (?user)
-    (bind ?cuisine-pref (fact-slot-value ?user cuisine-preference))
-    (bind ?allergy-pref (fact-slot-value ?user allergy-preference))
-    (printout t ?cuisine-pref " Cuisines: " crlf)
-    (do-for-all-facts ((?recipe Recipe)) (and (eq ?recipe:cuisine ?cuisine-pref)
-                                              (eq (str-index ?allergy-pref ?recipe:ingredients ) FALSE))
-         (printout t " - " ?recipe:name crlf)
+(defrule RecommendFoodRecipe
+	 (declare (salience 9))
+    (User 
+        (name ?name)
+        (food-cuisine-preference ?food-cuisine-pref)
+        (difficulty-preference ?difficulty-pref)
+        (food-ingredient-preference ?food-ingredient-pref)
     )
-)
-
-(deffunction RecommendRecipesByIngredients (?user)
-    (bind ?ingredient-pref (fact-slot-value ?user ingredient-preference))
-    (bind ?allergy-pref (fact-slot-value ?user allergy-preference))
-    (printout t "These recepies contains " ?ingredient-pref ":" crlf)
-    (do-for-all-facts ((?recipe Recipe)) (and (neq (str-index ?ingredient-pref ?recipe:ingredients ) FALSE)
-                                              (eq (str-index ?allergy-pref ?recipe:ingredients ) FALSE))
-         (printout t " - " ?recipe:name crlf)
+    (FoodRecipe 
+        (name ?recipe)
+        (cuisine ?cuisine)
+        (difficulty ?difficulty)
+        (ingredients ?ingredients)
+        (instructions ?instructions)
     )
-)
-
-(deffunction RecommendRecipesByDifficulty (?user)
-    (bind ?difficulty-pref (fact-slot-value ?user difficulty-preference))
-    (bind ?allergy-pref (fact-slot-value ?user allergy-preference))
-    (printout t "These recepies " ?difficulty-pref " to prepare: "  crlf)
-    (do-for-all-facts ((?recipe Recipe)) (and (eq ?recipe:difficulty ?difficulty-pref)
-                                              (eq (str-index ?allergy-pref ?recipe:ingredients ) FALSE))
-         (printout t " - " ?recipe:name crlf)
-    )
-)
-
-(defrule PrintRecipeRecommendation
-    ?user <- (User 
-                (name ?name)
-                (cuisine-preference ?cuisine-pref)
-                (difficulty-preference ?difficulty-pref)
-                (ingredient-preference ?ingredient-pref)
-                (allergy-preference ?allergy-pref)
-            )
+    (test (eq ?cuisine ?food-cuisine-pref))
+    (test (eq ?difficulty ?difficulty-pref))
+    (test (str-compare ?ingredients ?food-ingredient-pref))
     =>
-    (bind ?check 0)
-    (do-for-all-facts ((?recipe Recipe)) (and (eq ?recipe:cuisine ?cuisine-pref)
-                                              (eq ?recipe:difficulty ?difficulty-pref)
-                                              (neq (str-index ?ingredient-pref ?recipe:ingredients ) FALSE)
-                                              (eq (str-index ?allergy-pref ?recipe:ingredients ) FALSE))
-         (bind ?check (+ ?check 1))
-        (printout t crlf)
-        (printout t "Based on your preferences we suggest you cook these dishes:" crlf)
-        (printout t "===== " ?recipe:name " =====" crlf)
-        (printout t "ingredients: " ?recipe:ingredients crlf)
-        (printout t "instructions: "?recipe:instructions crlf)
+    (assert (FoodRecommendation 
+        (name ?recipe)
+        (ingredients ?ingredients)
+        (instructions ?instructions)
+    ))
+    ;(retract (User (name ?name)))
+    ;(retract (Recipe (name ?recipe)))
+)
+
+(defrule RecommendDrinkRecipe
+	 (declare (salience 8))
+    (User 
+        (name ?name)
+        (drink-temp-preference ?drink-temp-pref)
+        (difficulty-preference ?difficulty-pref)
+        (drink-ingredient-preference ?drink-ingredient-pref)
     )
-    (if(eq ?check 0)
-        then
-        (printout t crlf)
-        (printout t "Sorry we couldn't find a dish that suits your preferences," crlf)
-        (printout t "Here are several other alternatives based on each preference parameter you provided." crlf)
-        (printout t "(All of the following recipes are also free from your allergies)" crlf)
+    (DrinkRecipe 
+        (name ?recipe)
+        (temperature ?temperature)
+        (difficulty ?difficulty)
+        (ingredients ?ingredients)
+        (instructions ?instructions)
+    )
+    (test (eq ?temperature ?drink-temp-pref))
+    (test (eq ?difficulty ?difficulty-pref))
+    (test (str-compare ?ingredients ?drink-ingredient-pref))
+    =>
+    (assert (DrinkRecommendation 
+        (name ?recipe)
+        (ingredients ?ingredients)
+        (instructions ?instructions)
+    ))
+    ;(retract (User (name ?name)))
+    ;(retract (DrinkRecipe (name ?recipe)))
+)
 
-        (RecommendRecipesByCuisine ?user)
-        (RecommendRecipesByIngredients ?user)
-        (RecommendRecipesByDifficulty ?user)
+(defrule MatchFoodAndDrink
+	 (declare (salience 7))
+    (FoodRecommendation 
+        (name ?food-recom)
+        (ingredients ?food-ingredients)
+        (instructions ?food-instructions)
+    )
+    (DrinkRecommendation 
+        (name ?drink-recom)
+        (ingredients ?drink-ingredients)
+        (instructions ?drink-instructions)
+    )
+    (Compatibility
+        (food-name ?food-name)
+        (drink-name ?drink-name)
+        (value ?value)
+    )
+    (test (eq ?food-recom ?food-name))
+    (test (eq ?drink-recom ?drink-name))
+    =>
+    (assert (SetRecommendation 
+        (food-name ?food-name)
+        (food-ingredients ?food-ingredients)
+        (food-instructions ?food-instructions)
+        (drink-name ?drink-name)
+        (drink-ingredients ?drink-ingredients)
+        (drink-instructions ?drink-instructions)
+        (compatibility-value ?value)
+    ))
+    (printout t "Food: " ?food-name ", Drink: " ?drink-name " -> Compatibility Value: " ?value crlf)
+)
 
+(defrule GetBestSet
+  (declare (salience 6))
+
+   (SetRecommendation (food-name ?food1) (drink-name ?drink1) (compatibility-value ?value1))
+   (not (SetRecommendation (compatibility-value ?value2&:(> ?value2 ?value1))))
+   =>
+   (assert (BestSet
+        (food-name ?food1)
+        (drink-name ?drink1)
+    ))
+)
+
+
+(defrule handle-no-drink-matches
+	 (declare (salience 5))
+    ?u <- (User (name ?name) (drink-temp-preference ?temp))
+    (not (DrinkRecipe (temperature ?temp)))
+    =>
+    (printout t "Sorry, " ?name ", we couldn't find any drinks matching your temperature preference: " ?temp "." crlf)
+    (printout t "Would you like to change your drink temperature preference? (Hot or Cold)" crlf)
+    (bind ?newTemp (read))
+    (modify ?u (drink-temp-preference ?newTemp))
+)
+
+(defrule suggest-alternative-cuisine
+	 (declare (salience 4))
+    ?u <- (User (food-cuisine-preference ?cuisine))
+    (not (FoodRecipe (cuisine ?cuisine)))
+    =>
+    (printout t "It seems we don't have recipes in your preferred cuisine: " ?cuisine "." crlf)
+    (printout t "Would you like to try a different cuisine? (Italian, Thai, Indian, French, Mexican, Japanese)" crlf)
+    (bind ?newCuisine (read))
+    (modify ?u (food-cuisine-preference ?newCuisine))
+)
+(defrule confirm-final-recommendation
+	 (declare (salience 3))
+    ?bestSet <- (BestSet (food-name ?food) (drink-name ?drink))
+    =>
+    (printout t "We recommend " ?food " with " ?drink ". Do you want to proceed with these recommendations? (yes/no)" crlf)
+    (bind ?response (read))
+    (if (eq ?response "Yes") then
+        (printout t "Great! Enjoy your meal and drink!" crlf)
+    else
+        (printout t "Let's try finding other options. Please update your preferences." crlf)
+        (retract ?bestSet)
+        ; Other actions to reset or update user preferences can be added here
     )
 )
 
-(defrule NonallergyRecepies
-    ?user <- (User (name ?username) (allergy-preference ?allergy-pref))
+
+(defrule PrintRecommendation
+	 (declare (salience 2))
+    (SetRecommendation 
+        (food-name ?food-recom)
+        (food-ingredients ?food-ingredients)
+        (food-instructions ?food-instructions)
+        (drink-name ?drink-recom)
+        (drink-ingredients ?drink-ingredients)
+        (drink-instructions ?drink-instructions)
+        (compatibility-value ?value)
+    )
+    (BestSet
+        (food-name ?food-name)
+        (drink-name ?drink-name)
+    )
+    (test (eq ?food-recom ?food-name))
+    (test (eq ?drink-recom ?drink-name))
     =>
     (printout t crlf)
-    (printout t "Here are some other recipes that do not include " ?allergy-pref ":"crlf)
-    (bind ?count 0)
-    (do-for-all-facts ((?recipe Recipe)) (eq (str-index ?allergy-pref ?recipe:ingredients ) FALSE)
-        (bind ?count (+ ?count 1))
-        (printout t " - " ?recipe:name crlf)
-    )
+    (printout t "Based on your preferences, we recommend: " crlf)
+    (printout t "Food: " ?food-name crlf)
+    (printout t "- Ingredients: " ?food-ingredients crlf)
+    (printout t "- Instructions: " ?food-instructions crlf)
+    (printout t "Drink: " ?drink-name crlf)
+    (printout t "- Ingredients: " ?drink-ingredients crlf)
+    (printout t "- Instructions: " ?drink-instructions crlf)
 )
 
 (defrule ExitRecommendation
+	(declare (salience -10))
    (User (name ?name))
    =>
    (printout t "Thank you for using the personalized recipe recommender, " ?name "!" crlf)
+   ;(retract (User (name ?name)))
+   ;(exit)
 )
+; set initial facts
 
-(deffacts SampleRecipes
-    (Recipe 
+(deffacts SampleFoodRecipes
+    (FoodRecipe 
         (name "Spaghetti Carbonara") 
         (cuisine Italian) 
         (difficulty Easy)
-        (ingredients "spaghetti, eggs, bacon, Parmesan cheese") 
+        (ingredients "spaghetti, eggs, bacon, parmesan cheese") 
         (instructions "1. Cook spaghetti. 2. Fry bacon. 3. Mix eggs and cheese. 4. Toss with pasta.")
-        (rating 4.5)
+    )
+     (FoodRecipe 
+        (name "Japanese Sushi Rolls") 
+        (cuisine Japanese) 
+        (difficulty Intermediate)
+        (ingredients "Rice, nori sheets, salmon, cucumber, avocado, soy sauce") 
+        (instructions "1. Prepare sushi rice. 2. Lay nori sheet on a bamboo mat. 3. Spread rice on nori. 4. Place salmon, cucumber, avocado. 5. Roll using bamboo mat. 6. Slice into pieces. Serve with soy sauce.")
     )
 
-    (Recipe 
+    (FoodRecipe
+        (name "Pizza") 
+        (cuisine Italian) 
+        (difficulty Difficult)
+        (ingredients "flour, ketchup, tomato, onion, baking powder, olive oil, cheese, mushroom, oregano, mozzarella cheese, yeast, water") 
+        (instructions "1. Cook spaghetti. 2. Fry bacon. 3. Mix eggs and cheese. 4. Toss with pasta.")
+    )
+
+    (FoodRecipe 
         (name "Chicken Tikka Masala") 
         (cuisine Indian) 
         (difficulty Intermediate)
         (ingredients "chicken, yogurt, tomato sauce, spices") 
         (instructions "1. Marinate chicken. 2. Cook chicken. 3. Simmer in sauce.")
-        (rating 4.2)
     )
 
-    (Recipe 
-        (name "Grilled Cheese Sandwich") 
-        (cuisine American) 
-        (difficulty Easy)
-        (ingredients "bread, butter, cheese") 
-        (instructions "1. Butter bread slices. 2. Add cheese between slices. 3. Grill until golden brown.")
-        (rating 4.0)
-    )
-
-    (Recipe 
+    (FoodRecipe 
         (name "Caesar Salad") 
-        (cuisine Italian) 
-        (difficulty Easy)
-        (ingredients "romaine lettuce, croutons, Parmesan cheese, Caesar dressing") 
-        (instructions "1. Toss lettuce with dressing. 2. Add croutons and cheese.")
-        (rating 4.3)
-    )
-
-    (Recipe 
-        (name "Beef Stir-Fry") 
-        (cuisine Chinese) 
-        (difficulty Intermediate)
-        (ingredients "beef, bell peppers, broccoli, soy sauce, garlic") 
-        (instructions "1. Stir-fry beef and garlic. 2. Add vegetables and soy sauce.")
-        (rating 4.4)
-    )
-
-    (Recipe 
-        (name "Mushroom Risotto") 
-        (cuisine Italian) 
-        (difficulty Intermediate)
-        (ingredients "rice, mushrooms, onion, white wine, chicken broth") 
-        (instructions "1. Sauté onions and mushrooms. 2. Add rice and wine. 3. Gradually add broth.")
-        (rating 4.6)
-    )
-
-    (Recipe 
-        (name "Spicy Tofu Curry") 
-        (cuisine Indian) 
-        (difficulty Intermediate)
-        (ingredients "tofu, coconut milk, curry paste, vegetables") 
-        (instructions "1. Sauté tofu and vegetables. 2. Simmer in coconut milk and curry paste.")
-        (rating 4.1)
-    )
-
-    (Recipe 
-        (name "Fish Tacos") 
-        (cuisine Mexican) 
-        (difficulty Easy)
-        (ingredients "fish fillets, tortillas, cabbage, salsa") 
-        (instructions "1. Fry fish. 2. Assemble tacos with cabbage and salsa.")
-        (rating 4.7)
-    )
-
-    (Recipe 
-        (name "Pasta Primavera") 
-        (cuisine Italian) 
-        (difficulty Easy)
-        (ingredients "pasta, mixed vegetables, olive oil, Parmesan cheese") 
-        (instructions "1. Sauté vegetables. 2. Toss with cooked pasta and cheese.")
-        (rating 4.3)
-    )
-
-    (Recipe 
-        (name "Chicken Noodle Soup") 
         (cuisine American) 
         (difficulty Easy)
-        (ingredients "chicken, noodles, carrots, celery, chicken broth") 
-        (instructions "1. Cook chicken and vegetables in broth. 2. Add noodles.")
-        (rating 4.5)
+        (ingredients "romaine lettuce, croutons, caesar dressing") 
+        (instructions "1. Toss lettuce with dressing. 2. Add croutons.")
     )
 
-    (Recipe 
-        (name "Greek Salad") 
-        (cuisine Greek) 
-        (difficulty Easy)
-        (ingredients "cucumbers, tomatoes, feta cheese, olives, olive oil") 
-        (instructions "1. Combine vegetables, cheese, and olives. 2. Drizzle with olive oil.")
-        (rating 4.2)
-    )
-
-    (Recipe 
-        (name "Beef Tacos") 
-        (cuisine Mexican) 
-        (difficulty Easy)
-        (ingredients "ground beef, taco seasoning, tortillas, lettuce, cheese") 
-        (instructions "1. Brown beef with seasoning. 2. Assemble tacos with lettuce and cheese.")
-        (rating 4.6)
-    )
-
-    (Recipe 
-        (name "Shrimp Scampi") 
-        (cuisine Italian) 
+    (FoodRecipe
+        (name "Bakso") 
+        (cuisine Indonesian) 
         (difficulty Intermediate)
-        (ingredients "shrimp, garlic, white wine, butter, pasta") 
-        (instructions "1. Sauté shrimp and garlic in butter. 2. Add white wine and serve over pasta.")
-        (rating 4.4)
+        (ingredients "ground meat, garlic, water, bones, onions, noodle") 
+        (instructions "1. Mix ground meat with seasonings and shape into small meatballs. 2. Boil water with bones, garlic, and onions for flavor. 3. Strain, season, and simmer the broth. 4. Boil noodles until al dente. 5. Place noodles and meatballs in a bowl, pour hot broth, and garnish.")
     )
 
-    (Recipe 
-        (name "Vegetable Curry") 
-        (cuisine Indian) 
-        (difficulty Easy)
-        (ingredients "assorted vegetables, curry sauce, rice") 
-        (instructions "1. Cook vegetables in curry sauce. 2. Serve over rice.")
-        (rating 4.0)
-    )
-
-    (Recipe 
-        (name "Caprese Salad") 
-        (cuisine Italian) 
-        (difficulty Easy)
-        (ingredients "tomatoes, fresh mozzarella, basil, balsamic glaze") 
-        (instructions "1. Arrange tomato and mozzarella slices. 2. Top with basil and drizzle with balsamic glaze.")
-        (rating 4.5)
-    )
-
-    (Recipe 
-        (name "Teriyaki Chicken") 
-        (cuisine Japanese) 
+    (FoodRecipe 
+        (name "Mie Aceh") 
+        (cuisine Indonesian) 
         (difficulty Intermediate)
-        (ingredients "chicken thighs, teriyaki sauce, broccoli, rice") 
-        (instructions "1. Marinate chicken in teriyaki sauce. 2. Grill and serve with steamed broccoli and rice.")
-        (rating 4.2)
+        (ingredients "noodle, water, oil, garlic, shallots, beef, Aceh chili paste, coconut milk, kaffir lime leaves, lemongrass") 
+        (instructions "1. Boil water in a pot and cook your choice of noodles until al dente. 2. Heat oil in a separate pan and sauté garlic and shallots until fragrant. 3. Add beef and cook until browned. 4. Stir in Aceh chili paste and cook for a few minutes. 5. Pour in water and coconut milk, then add kaffir lime leaves and lemongrass. 6. Simmer until the broth thickens and the flavors meld. 7. Serve the cooked noodles in a bowl and pour the flavorful broth over them.")
     )
+)
 
-    (Recipe 
-        (name "Pesto Pasta") 
-        (cuisine Italian) 
+(deffacts SampleDrinkRecipes
+    (DrinkRecipe 
+        (name "Cappuccino") 
+        (temperature Hot) 
         (difficulty Easy)
-        (ingredients "pasta, basil pesto, cherry tomatoes, pine nuts") 
-        (instructions "1. Toss cooked pasta with pesto. 2. Garnish with cherry tomatoes and pine nuts.")
-        (rating 4.3)
+        (ingredients "coffee beans, water, milk") 
+        (instructions "1. Grind fresh coffee beans to a fine espresso grind. 2. Use an espresso machine to brew a shot of espresso using the freshly ground coffee. 3. Steam and froth milk until it's creamy and has a velvety texture. 4. Pour the freshly brewed espresso into a cup and top it with the frothed milk.")
     )
 
-    (Recipe 
-        (name "Beef and Broccoli Stir-Fry") 
-        (cuisine Chinese) 
+    (DrinkRecipe 
+        (name "Iced Milk Tea") 
+        (temperature Cold) 
+        (difficulty Difficult)
+        (ingredients "tea leaf, milk, sugar, water") 
+        (instructions "1. Brew strong black tea using tea leaf and let it cool. 2. Sweeten the tea to taste. 3. Fill a glass with ice and pour the tea over it. 4. Add milk, stir, and enjoy!")
+    )
+
+    (DrinkRecipe 
+        (name "Wedang Jahe") 
+        (temperature Hot) 
         (difficulty Intermediate)
-        (ingredients "beef, broccoli, soy sauce, ginger, garlic") 
-        (instructions "1. Stir-fry beef with ginger and garlic. 2. Add broccoli and soy sauce.")
-        (rating 4.5)
+        (ingredients "water, ginger, lemongrass, brown sugar") 
+        (instructions "1. Boil water in a pot. 2. Add fresh ginger slices and crushed lemongrass. 3. Simmer for 10-15 minutes. 4. Add brown sugar and continue simmering until dissolved. 5. Strain into cups and serve hot.")
+    )
+)
+
+(deffacts SampleCompatibilities
+    (Compatibility
+        (food-name "Spaghetti Carbonara")
+        (drink-name "Cappuccino")
+        (value 80)
     )
 
-    (Recipe 
-        (name "Chicken Fajitas") 
-        (cuisine Mexican) 
-        (difficulty Easy)
-        (ingredients "chicken breasts, bell peppers, onions, fajita seasoning, tortillas") 
-        (instructions "1. Sauté chicken, peppers, and onions with fajita seasoning. 2. Serve in tortillas.")
-        (rating 4.4)
+    (Compatibility
+        (food-name "Japanese Sushi Rolls")
+        (drink-name "Ice Boba Milk Tea")
+        (value 83)
+    )
+	(Compatibility
+       (food-name "Spaghetti Carbonara")
+       (drink-name "Ice Boba Milk Tea")
+       (value 83)
     )
 
-    (Recipe 
-        (name "Egg Fried Rice") 
-        (cuisine Chinese) 
-        (difficulty Easy)
-        (ingredients "rice, eggs, peas, carrots, soy sauce") 
-        (instructions "1. Scramble eggs and add to cooked rice with peas, carrots, and soy sauce.")
-        (rating 4.1)
+    (Compatibility
+        (food-name "Spaghetti Carbonara")
+        (drink-name "Wedang Jahe")
+        (value 32)
     )
 
-    (Recipe 
-        (name "Mango Salsa") 
-        (cuisine Mexican) 
-        (difficulty Easy)
-        (ingredients "mangoes, red onion, cilantro, lime juice, jalapeño") 
-        (instructions "1. Dice mangoes and mix with chopped onion, cilantro, lime juice, and jalapeño.")
-        (rating 4.6)
+    (Compatibility
+        (food-name "Pizza")
+        (drink-name "Cappuccino")
+        (value 85)
+    )
+
+    (Compatibility
+        (food-name "Pizza")
+        (drink-name "Ice Boba Milk Tea")
+        (value 76)
+    )
+
+    (Compatibility
+        (food-name "Pizza")
+        (drink-name "Wedang Jahe")
+        (value 34)
+    )
+
+    (Compatibility
+        (food-name "Chicken Tikka Masala")
+        (drink-name "Cappuccino")
+        (value 63)
+    )
+
+    (Compatibility
+        (food-name "Chicken Tikka Masala")
+        (drink-name "Ice Boba Milk Tea")
+        (value 88)
+    )
+
+    (Compatibility
+        (food-name "Chicken Tikka Masala")
+        (drink-name "Wedang Jahe")
+        (value 31)
+    )
+
+    (Compatibility
+        (food-name "Caesar Salad")
+        (drink-name "Cappuccino")
+        (value 84)
+    )
+
+    (Compatibility
+        (food-name "Caesar Salad")
+        (drink-name "Ice Boba Milk Tea")
+        (value 87)
+    )
+
+    (Compatibility
+        (food-name "Caesar Salad")
+        (drink-name "Wedang Jahe")
+        (value 29)
+    )
+
+    (Compatibility
+        (food-name "Bakso")
+        (drink-name "Cappuccino")
+        (value 42)
+    )
+
+    (Compatibility
+        (food-name "Bakso")
+        (drink-name "Ice Boba Milk Tea")
+        (value 92)
+    )
+
+    (Compatibility
+        (food-name "Bakso")
+        (drink-name "Wedang Jahe")
+        (value 67)
+    )
+
+    (Compatibility
+        (food-name "Mie Aceh")
+        (drink-name "Cappuccino")
+        (value 37)
+    )
+
+    (Compatibility
+        (food-name "Mie Aceh")
+        (drink-name "Ice Boba Milk Tea")
+        (value 88)
+    )
+
+    (Compatibility
+        (food-name "Mie Aceh")
+        (drink-name "Wedang Jahe")
+        (value 82)
     )
 )
