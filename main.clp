@@ -60,7 +60,6 @@
 ; Create Rules
 
 (defrule GetUserPreferences
-	 (declare (salience 10))
     (not (User (name ?name)))
     =>
     ; inputs for user
@@ -90,7 +89,6 @@
 
 
 (defrule RecommendFoodRecipe
-	 (declare (salience 9))
     (User 
         (name ?name)
         (food-cuisine-preference ?food-cuisine-pref)
@@ -118,7 +116,6 @@
 )
 
 (defrule RecommendDrinkRecipe
-	 (declare (salience 8))
     (User 
         (name ?name)
         (drink-temp-preference ?drink-temp-pref)
@@ -146,7 +143,7 @@
 )
 
 (defrule MatchFoodAndDrink
-	 (declare (salience 7))
+    (declare (salience -2))
     (FoodRecommendation 
         (name ?food-recom)
         (ingredients ?food-ingredients)
@@ -178,8 +175,7 @@
 )
 
 (defrule GetBestSet
-  (declare (salience 6))
-
+   (declare (salience -3))
    (SetRecommendation (food-name ?food1) (drink-name ?drink1) (compatibility-value ?value1))
    (not (SetRecommendation (compatibility-value ?value2&:(> ?value2 ?value1))))
    =>
@@ -189,46 +185,8 @@
     ))
 )
 
-
-(defrule handle-no-drink-matches
-	 (declare (salience 5))
-    ?u <- (User (name ?name) (drink-temp-preference ?temp))
-    (not (DrinkRecipe (temperature ?temp)))
-    =>
-    (printout t "Sorry, " ?name ", we couldn't find any drinks matching your temperature preference: " ?temp "." crlf)
-    (printout t "Would you like to change your drink temperature preference? (Hot or Cold)" crlf)
-    (bind ?newTemp (read))
-    (modify ?u (drink-temp-preference ?newTemp))
-)
-
-(defrule suggest-alternative-cuisine
-	 (declare (salience 4))
-    ?u <- (User (food-cuisine-preference ?cuisine))
-    (not (FoodRecipe (cuisine ?cuisine)))
-    =>
-    (printout t "It seems we don't have recipes in your preferred cuisine: " ?cuisine "." crlf)
-    (printout t "Would you like to try a different cuisine? (Italian, Thai, Indian, French, Mexican, Japanese)" crlf)
-    (bind ?newCuisine (read))
-    (modify ?u (food-cuisine-preference ?newCuisine))
-)
-(defrule confirm-final-recommendation
-	 (declare (salience 3))
-    ?bestSet <- (BestSet (food-name ?food) (drink-name ?drink))
-    =>
-    (printout t "We recommend " ?food " with " ?drink ". Do you want to proceed with these recommendations? (yes/no)" crlf)
-    (bind ?response (read))
-    (if (eq ?response "Yes") then
-        (printout t "Great! Enjoy your meal and drink!" crlf)
-    else
-        (printout t "Let's try finding other options. Please update your preferences." crlf)
-        (retract ?bestSet)
-        ; Other actions to reset or update user preferences can be added here
-    )
-)
-
-
 (defrule PrintRecommendation
-	 (declare (salience 2))
+    (declare (salience -4))
     (SetRecommendation 
         (food-name ?food-recom)
         (food-ingredients ?food-ingredients)
@@ -255,14 +213,24 @@
     (printout t "- Instructions: " ?drink-instructions crlf)
 )
 
+(defrule NoRecommendation
+    (declare (salience -4))
+    (not (BestSet (food-name ?name) (drink-name ?drink-name)))
+    =>
+    (printout t crlf)
+    (printout t "We are terribly sorry, but we can't recommend any recipe based on your preferences." crlf)
+    (printout t "Stay tuned as more recipe data are coming soon or you can try another preferences :)" crlf)
+)
+
 (defrule ExitRecommendation
-	(declare (salience -10))
+   (declare (salience -5))
    (User (name ?name))
    =>
    (printout t "Thank you for using the personalized recipe recommender, " ?name "!" crlf)
    ;(retract (User (name ?name)))
    ;(exit)
 )
+
 ; set initial facts
 
 (deffacts SampleFoodRecipes
@@ -272,13 +240,6 @@
         (difficulty Easy)
         (ingredients "spaghetti, eggs, bacon, parmesan cheese") 
         (instructions "1. Cook spaghetti. 2. Fry bacon. 3. Mix eggs and cheese. 4. Toss with pasta.")
-    )
-     (FoodRecipe 
-        (name "Japanese Sushi Rolls") 
-        (cuisine Japanese) 
-        (difficulty Intermediate)
-        (ingredients "Rice, nori sheets, salmon, cucumber, avocado, soy sauce") 
-        (instructions "1. Prepare sushi rice. 2. Lay nori sheet on a bamboo mat. 3. Spread rice on nori. 4. Place salmon, cucumber, avocado. 5. Roll using bamboo mat. 6. Slice into pieces. Serve with soy sauce.")
     )
 
     (FoodRecipe
@@ -295,6 +256,14 @@
         (difficulty Intermediate)
         (ingredients "chicken, yogurt, tomato sauce, spices") 
         (instructions "1. Marinate chicken. 2. Cook chicken. 3. Simmer in sauce.")
+    )
+    
+    (FoodRecipe 
+        (name "Indian Butter Chicken") 
+        (cuisine Indian) 
+        (difficulty Intermediate)
+        (ingredients "Chicken, butter, tomato, spices") 
+        (instructions "1. Marinate chicken in spices. 2. Cook in butter. 3. Add tomato. 4. Simmer until tender.")
     )
 
     (FoodRecipe 
@@ -320,6 +289,39 @@
         (ingredients "noodle, water, oil, garlic, shallots, beef, Aceh chili paste, coconut milk, kaffir lime leaves, lemongrass") 
         (instructions "1. Boil water in a pot and cook your choice of noodles until al dente. 2. Heat oil in a separate pan and sauté garlic and shallots until fragrant. 3. Add beef and cook until browned. 4. Stir in Aceh chili paste and cook for a few minutes. 5. Pour in water and coconut milk, then add kaffir lime leaves and lemongrass. 6. Simmer until the broth thickens and the flavors meld. 7. Serve the cooked noodles in a bowl and pour the flavorful broth over them.")
     )
+    
+    (FoodRecipe 
+        (name "French Ratatouille") 
+        (cuisine French) 
+        (difficulty Difficult)
+        (ingredients "Eggplant, zucchini, bell pepper, tomato, onion, garlic, herbs") 
+        (instructions "1. Chop vegetables. 2. Sauté onion and garlic. 3. Add vegetables, simmer. 4. Season with herbs.")
+    )
+    
+     (FoodRecipe 
+        (name "Japanese Sushi Rolls") 
+        (cuisine Japanese) 
+        (difficulty Intermediate)
+        (ingredients "Rice, nori sheets, salmon, cucumber, avocado, soy sauce") 
+        (instructions "1. Prepare sushi rice. 2. Lay nori sheet on a bamboo mat. 3. Spread rice on nori. 4. Place salmon, cucumber, avocado. 5. Roll using bamboo mat. 6. Slice into pieces. Serve with soy sauce.")
+    )
+    
+    (FoodRecipe 
+        (name "Mexican Tacos") 
+        (cuisine Mexican) 
+        (difficulty Easy)
+        (ingredients "Corn tortillas, ground beef, onion, tomato, lettuce, cheese, salsa") 
+        (instructions "1. Cook ground beef with onion. 2. Warm tortillas. 3. Assemble tacos with beef, lettuce, tomato, cheese. 4. Top with salsa.")
+    )
+    
+    (FoodRecipe 
+        (name "Thai Green Curry") 
+        (cuisine Thai) 
+        (difficulty Difficult)
+        (ingredients "Chicken, coconut milk, green curry paste, vegetables, basil") 
+        (instructions "1. Cook chicken. 2. Add green curry paste. 3. Pour coconut milk. 4. Add vegetables, simmer. 5. Garnish with basil.")
+    )
+    
 )
 
 (deffacts SampleDrinkRecipes
@@ -340,7 +342,7 @@
     )
 
     (DrinkRecipe 
-        (name "Wedang Jahe") 
+        (name "Ginger Tea") 
         (temperature Hot) 
         (difficulty Intermediate)
         (ingredients "water, ginger, lemongrass, brown sugar") 
@@ -356,19 +358,14 @@
     )
 
     (Compatibility
-        (food-name "Japanese Sushi Rolls")
+        (food-name "Spaghetti Carbonara")
         (drink-name "Ice Boba Milk Tea")
         (value 83)
-    )
-	(Compatibility
-       (food-name "Spaghetti Carbonara")
-       (drink-name "Ice Boba Milk Tea")
-       (value 83)
     )
 
     (Compatibility
         (food-name "Spaghetti Carbonara")
-        (drink-name "Wedang Jahe")
+        (drink-name "Ginger Tea")
         (value 32)
     )
 
@@ -386,7 +383,7 @@
 
     (Compatibility
         (food-name "Pizza")
-        (drink-name "Wedang Jahe")
+        (drink-name "Ginger Tea")
         (value 34)
     )
 
@@ -404,7 +401,7 @@
 
     (Compatibility
         (food-name "Chicken Tikka Masala")
-        (drink-name "Wedang Jahe")
+        (drink-name "Ginger Tea")
         (value 31)
     )
 
@@ -422,7 +419,7 @@
 
     (Compatibility
         (food-name "Caesar Salad")
-        (drink-name "Wedang Jahe")
+        (drink-name "Ginger Tea")
         (value 29)
     )
 
@@ -440,7 +437,7 @@
 
     (Compatibility
         (food-name "Bakso")
-        (drink-name "Wedang Jahe")
+        (drink-name "Ginger Tea")
         (value 67)
     )
 
@@ -458,7 +455,82 @@
 
     (Compatibility
         (food-name "Mie Aceh")
-        (drink-name "Wedang Jahe")
+        (drink-name "Ginger Tea")
+        (value 82)
+    )
+    (Compatibility
+        (food-name "Japanese Sushi Rolls")
+        (drink-name "Cappuccino")
+        (value 65)
+    )
+    (Compatibility
+        (food-name "Japanese Sushi Rolls")
+        (drink-name "Iced Milk Tea")
+        (value 84)
+    )
+    (Compatibility
+        (food-name "Japanese Sushi Rolls")
+        (drink-name "Ginger Tea")
+        (value 70)
+    )
+    (Compatibility
+        (food-name "Mexican Tacos")
+        (drink-name "Cappuccino")
+        (value 45)
+    )
+    (Compatibility
+        (food-name "Mexican Tacos")
+        (drink-name "Iced Milk Tea")
+        (value 75)
+    )
+    (Compatibility
+        (food-name "Mexican Tacos")
+        (drink-name "Ginger Tea")
+        (value 80)
+    )
+    (Compatibility
+        (food-name "French Ratatouille")
+        (drink-name "Cappuccino")
+        (value 70)
+    )
+    (Compatibility
+        (food-name "French Ratatouille")
+        (drink-name "Iced Milk Tea")
+        (value 60)
+    )
+    (Compatibility
+        (food-name "French Ratatouille")
+        (drink-name "Ginger Tea")
+        (value 85)
+    )
+    (Compatibility
+        (food-name "Indian Butter Chicken")
+        (drink-name "Cappuccino")
+        (value 55)
+    )
+    (Compatibility
+        (food-name "Indian Butter Chicken")
+        (drink-name "Iced Milk Tea")
+        (value 90)
+    )
+    (Compatibility
+        (food-name "Indian Butter Chicken")
+        (drink-name "Ginger Tea")
+        (value 60)
+    )
+    (Compatibility
+        (food-name "Thai Green Curry")
+        (drink-name "Cappuccino")
+        (value 50)
+    )
+    (Compatibility
+        (food-name "Thai Green Curry")
+        (drink-name "Iced Milk Tea")
+        (value 78)
+    )
+    (Compatibility
+        (food-name "Thai Green Curry")
+        (drink-name "Ginger Tea")
         (value 82)
     )
 )
